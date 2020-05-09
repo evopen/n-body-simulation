@@ -1,0 +1,28 @@
+#version 450
+
+#define BODIES_COUNT 3
+
+#define STEP_LENGTH 60
+
+layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+struct Body {
+	dvec3 position;
+	dvec3 velocity;
+	double mass;
+};
+
+layout (set = 0, binding = 0) buffer buf_block {
+	Body bodies[BODIES_COUNT];
+};
+
+
+void main() {
+	// index for itself
+	uint index = gl_GlobalInvocationID.x;
+
+	if(index >= BODIES_COUNT)
+		return;
+
+	bodies[index].position = bodies[index].position + bodies[index].velocity * STEP_LENGTH;
+}

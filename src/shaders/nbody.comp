@@ -1,0 +1,71 @@
+#version 450
+
+#define BODIES_COUNT 3
+
+// STEP_LENGTH is how many second every simulation step
+#define STEP_LENGTH_FIXED 0.0001
+
+layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+
+
+const double G = 6.674 * pow(10, -11);
+
+struct Body {
+	dvec3 position;
+	dvec3 velocity;
+	double mass;
+};
+
+shared Body cache[BODIES_COUNT];
+
+layout (set = 0, binding = 0) buffer buf_block {
+	Body bodies[BODIES_COUNT];
+};
+
+
+
+void main() {
+	// index for itself
+	uint index = gl_GlobalInvocationID.x;
+
+	if(index >= BODIES_COUNT)
+		return;
+
+	double min_r = 1.0 / 0.0;
+	min_r = min(min_r, length(bodies[0].position - bodies[1].position));
+	min_r = min(min_r, length(bodies[0].position - bodies[2].position));
+	min_r = min(min_r, length(bodies[1].position - bodies[2].position));
+
+	double step_length = STEP_LENGTH_FIXED;
+	
+	if(min_r < 50000000000.f) {
+		step_length = 0.00001;
+	}
+
+	for ( int i = 0; i < 600; ++i ) {
+		dvec3 force = dvec3(0, 0, 0);
+
+		double min_r = 1.0 / 0.0;
+		
+		// iterate all other bodies
+		for ( int j = 0; j < BODIES_COUNT; ++j )
+		{
+			// skip for itself
+			if ( j == index ) 
+				continue;
+
+			dvec3 direction = bodies[j].position - bodies[index].position;
+			double r = length(direction);
+		
+			force += (bodies[j].mass) / (r * r) * normalize(direction);
+		}
+
+		dvec3 dv = step_length * force;
+		bodies[index].velocity += dv;
+
+		memoryBarrier();
+		barrier();
+		bodies[index].position = bodies[index].position + bodies[index].velocity * step_length;
+	}
+}
